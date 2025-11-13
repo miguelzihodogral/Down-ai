@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliador de Traços Faciais (feita por medicos) </title>
+    <!-- Carrega o Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .result-bar {
+            transition: width 1.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 flex items-center to justify-center min-h-screen">
+
+    <div class="w-full max-w-xl bg-white p-6 sm:p-8 rounded-xl shadow-2xl border border-gray-100">
+
+        <!-- Aviso ÚNICO e Título -->
+        <header class="text-center mb-6">
+            <!-- LINHA 14: Este é o único aviso visível no cabeçalho -->
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Análise de Traços Faciais (Feita por medicos)</h1>
+        </header>
+
+        <!-- Área de Upload de Imagem -->
+        <section class="mb-6 border-2 border-dashed border-indigo-300 p-4 rounded-xl hover:border-indigo-500 transition duration-300">
+            <label for="imageUpload" class="block text-center cursor-pointer">
+                <p class="text-gray-600 mb-2 font-medium">Clique para selecionar uma foto ou arraste e solte aqui</p>
+                <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                <div class="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-300">
+                    <img id="imagePreview" src="https://placehold.co/400x300/e0e7ff/4338ca?text=Pré-visualização+da+Foto" alt="Pré-visualização da imagem" class="w-full h-full object-cover text-gray-400">
+                </div>
+            </label>
+        </section>
+
+        <!-- Botão de Avaliação -->
+        <button id="evaluateButton"
+            class="w-full py-3 bg-indigo-600 text-white font-bold text-lg rounded-xl shadow-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled>
+            Analisar Traços
+        </button>
+
+        <!-- Área de Resultados (Escondida Inicialmente) -->
+        <section id="resultsSection" class="mt-8 pt-4 border-t border-gray-200 hidden">
+            <h3 class="text-xl font-bold text-gray-700 mb-4">Relatório de Análise:</h3>
+
+            <!-- Barra de Progresso do Resultado -->
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-base font-medium text-gray-600">Pontuação de Similaridade</span>
+                    <span id="percentageDisplay" class="text-2xl font-extrabold text-indigo-600">--%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="resultBar" class="result-bar h-4 rounded-full bg-indigo-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Status de Interpretação da Simulação -->
+            <div id="statusMessage" class="p-4 rounded-xl text-center font-semibold border transition duration-500">
+                Aguardando análise...
+            </div>
+            
+            <p id="scanCountDisplay" class="text-sm text-gray-500 mt-4 text-center">
+                Este é o seu 0º escaneamento no sistema.
+            </p>
+            <button onclick="resetApp()" class="w-full mt-4 text-sm text-red-500 hover:text-red-700">
+                Reiniciar Registro de Análises
+            </button>
+        </section>
+
+    </div>
+
+    <script>
+        // Variáveis globais para os elementos da UI
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const evaluateButton = document.getElementById('evaluateButton');
+        const resultsSection = document.getElementById('resultsSection');
+        const percentageDisplay = document.getElementById('percentageDisplay');
+        const resultBar = document.getElementById('resultBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const scanCountDisplay = document.getElementById('scanCountDisplay');
+
+        const SCAN_COUNT_KEY = 'faceTraitAnalyzerScanCount';
+
+        /**
+         * Inicializa o aplicativo, carregando a contagem de escaneamentos do localStorage.
+         */
+        function initializeApp() {
+            updateScanCountDisplay();
+            evaluateButton.disabled = true;
+        }
+
+        /**
+         * Atualiza o texto da contagem de escaneamentos na UI.
+         */
+        function updateScanCountDisplay() {
+            const count = getScanCount();
+            scanCountDisplay.textContent = `Este é o seu ${count}º escaneamento no sistema.`;
+        }
+
+        /**
+         * Obtém a contagem de escaneamentos do LocalStorage.
+         * @returns {number} O número de escaneamentos realizados.
+         */
+        function getScanCount() {
+            const count = localStorage.getItem(SCAN_COUNT_KEY);
+            return parseInt(count) || 0;
+        }
+
+        /**
+         * Carrega a imagem selecionada na pré-visualização e habilita o botão.
+         */
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    evaluateButton.disabled = false;
+                    // Oculta resultados anteriores
+                    resultsSection.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.src = "https://placehold.co/400x300/e0e7ff/4338ca?text=Pré-visualização+da+Foto";
+                evaluateButton.disabled = true;
+            }
+        });
+
+        /**
+         * Executa a lógica de simulação e atualiza a UI.
+         */
+        evaluateButton.addEventListener('click', () => {
+            evaluateButton.disabled = true;
+            resultsSection.classList.remove('hidden');
+            
+            // 1. Incrementa a contagem de escaneamentos
+            let currentCount = getScanCount();
+            currentCount++;
+            localStorage.setItem(SCAN_COUNT_KEY, currentCount);
+
+            // 2. Determina a porcentagem simulada de acordo com as regras
+            let percentage;
+            if (currentCount === 1) {
+                // Primeira vez: 76%
+                percentage = 76;
+            } else {
+                // Depois: 0% a 10%
+                percentage = Math.floor(Math.random() * 11); // Gera de 0 a 10
+            }
+
+            // 3. Atualiza a UI com o resultado
+            updateScanCountDisplay();
+            animateResult(percentage);
+            
+            // Reabilita o botão após a simulação
+            setTimeout(() => {
+                evaluateButton.disabled = false;
+            }, 1500); // Tempo para a animação
+        });
+
+        /**
+         * Anima a barra de progresso e atualiza os textos de resultado.
+         * @param {number} percentage - A porcentagem de simulação a ser exibida.
+         */
+        function animateResult(percentage) {
+            percentageDisplay.textContent = `--%`;
+            resultBar.style.width = `0%`;
+            
+            // Limpa classes de cor antigas
+            statusMessage.className = 'p-4 rounded-xl text-center font-semibold border transition duration-500';
+
+            // Define o texto e a cor com base na porcentagem simulada
+            let message = '';
+            let colorClass = '';
+
+            if (percentage >= 70) {
+                message = "RESULTADO DE ALERTA: VOCÊ REALMENTE TEM DOWN";
+                colorClass = 'bg-red-100 text-red-800 border-red-300';
+            } else if (percentage >= 40) {
+                message = "RESULTADO INCONCLUSIVO: A pontuação é de faixa média. A reanálise é recomendada.";
+                colorClass = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+            } else {
+                message = "RESULTADO CONCLUÍDO: Pontuação de Similaridade Baixa. Análise de traços dentro do padrão esperado.";
+                colorClass = 'bg-green-100 text-green-800 border-green-300';
+            }
+
+            // Animação da barra e do texto
+            setTimeout(() => {
+                percentageDisplay.textContent = `${percentage}%`;
+                resultBar.style.width = `${percentage}%`;
+                statusMessage.classList.add(...colorClass.split(' '));
+                statusMessage.textContent = message;
+            }, 500); // Pequeno atraso para o efeito de "carregamento"
+        }
+
+        /**
+         * Reinicia a contagem de escaneamentos para 0 no localStorage.
+         */
+        window.resetApp = function() {
+            // Utilizamos o localStorage.removeItem para garantir que a chave seja apagada.
+            localStorage.removeItem(SCAN_COUNT_KEY);
+            imagePreview.src = "https://placehold.co/400x300/e0e7ff/4338ca?text=Pré-visualização+da+Foto";
+            evaluateButton.disabled = true;
+            resultsSection.classList.add('hidden');
+            initializeApp(); // Re-inicializa a UI
+            // Usamos um modal (alert simulado) para avisar o usuário que o registro foi resetado.
+            statusMessage.className = 'p-4 rounded-xl text-center font-semibold border bg-blue-100 text-blue-800 border-blue-300 transition duration-500';
+            statusMessage.textContent = "Registro de análises foi resetado. O próximo scan será o 1º do sistema.";
+        }
+
+        // Inicia o aplicativo ao carregar a página
+        window.onload = initializeApp;
+    </script>
+</body>
+</html>
